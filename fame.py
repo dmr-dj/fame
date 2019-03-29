@@ -5,7 +5,7 @@ Last modified, Thu Mar 28 17:51:17 CET 2019
 
 @author: Didier M. Roche a.k.a. dmr
 """
-# History:
+# History:
 # Changes from version 0.3 : uses d18Osw generated from the WOA salinity as input
 # Changes from version 0.4 : corrected a bug on the depth axis (positive of negative)
 # Changes from version 0.5 : updated FAME computations ..., lots of cleaning up
@@ -20,7 +20,7 @@ Last modified, Thu Mar 28 17:51:17 CET 2019
 # Changes from version 0.95: big cleanup of the code to keep only what is stricly necessary
 # Changes from version 0.96: separated module ...
 # Changes from version 0.97: latest version including the change in encrustation term value for pachy_s
-# Published version v1.0 --- cf. doi:10.5194/gmd-11-3587-2018
+# Published version v1.0 --- cf. doi:10.5194/gmd-11-3587-2018
 # Changes from version 1.00: included density
 # Changes from version 1.10: cleaned up to account for absent density function
 
@@ -137,11 +137,11 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
     temp_kl_m = temp_cl_m + 273.15
 
     # Computation of equilibrium calcite from WOA fields ...
-    delt_dh_init = delta_c(temp_cl[0,...],woa_oxyg_dh)
+    delt_dh_init = delta_c(temp_cl[...],woa_oxyg_dh)
     delt_dh_init_m = delta_c(temp_cl_m,woa_oxyg_dh_m)
 
     if not ( woa_rhom is None ):
-       # [DENSITY] -- addition of density from WOA
+       # [DENSITY] -- addition of density from WOA
        rho_m = woa_rhom
     #endif
 
@@ -149,21 +149,23 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
     depth_50m = find_closest(depth,50.0)
     depth_00m = find_closest(depth, 0.0)
 
-    if depth_50m == depth_00m : depth_50m += 1
+    indx_less_50m = depth <= 50.0
+
+    #~ if depth_50m == depth_00m : depth_50m += 1
 
     # NOTA: all *_lj variables have a dimension without time and depth
     #       e.g. [180,360], lat, lon
 
-    d18Osw_lj = ma.mean(woa_oxyg_dh[depth_00m:depth_50m,...],axis=0)
-    tempcl_lj = ma.mean(temp_cl[0,depth_00m:depth_50m,...],axis=0)
+    d18Osw_lj = ma.mean(woa_oxyg_dh[indx_less_50m,...],axis=0)
+    tempcl_lj = ma.mean(temp_cl[indx_less_50m,...],axis=0)
     d18Oca_lj = delta_c(tempcl_lj,d18Osw_lj)
 
     d18Osw_ol = woa_oxyg_dh[depth_00m,...]
-    tempcl_ol = temp_cl[0,depth_00m,...]
+    tempcl_ol = temp_cl[depth_00m,...]
     d18Oca_ol = delta_c(tempcl_ol,d18Osw_ol)
 
     if not ( woa_rhom is None ):
-        # [DENSITY] -- addition of density from WOA
+        # [DENSITY] -- addition of density from WOA
         rhom_ol = ma.mean(woa_rhom[:,depth_00m,...],axis=0)
     #endif
 
@@ -176,14 +178,14 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
     delt_forams = ma.zeros(max_shape_final,np.float32)
 
     if not ( woa_rhom is None ):
-       # [DENSITY] -- addition of density from WOA
+       # [DENSITY] -- addition of density from WOA
        rhom_forams = ma.zeros(max_shape_final,np.float32)
     #endif
 
     for foram_specie in fpl.l09_cnsts_dic :
 
         # Rate of growth from the Lombard et al., 2009 methodology
-        foram_growth = fpl.growth_rate_l09_array(foram_specie,temp_kl[0,...])
+        foram_growth = fpl.growth_rate_l09_array(foram_specie,temp_kl[...])
         foram_growth_m = fpl.growth_rate_l09_array(foram_specie,temp_kl_m)
 
         # Get the depth of the STD living foram in FAME
@@ -191,25 +193,27 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
 
         # Find this depth as an index in the array water column
         indx_dfm = find_closest(depth,abs(float(f_dept[0])))
-        if indx_dfm == depth_00m : indx_dfm += 1
+        #~ if indx_dfm == depth_00m : indx_dfm += 1
+
+        indx_less_dfm = depth <= np.abs(float(f_dept[0]))
 
         # Shrink the FAME arrays to the foram living depth
-        foram_growth = foram_growth[depth_00m:indx_dfm,...] # shape is depth, lat, lon
-        foram_growth_m = foram_growth_m[:,depth_00m:indx_dfm,...] # shape is time, depth, lat, lon
+        foram_growth = foram_growth[indx_less_dfm,...] # shape is depth, lat, lon
+        foram_growth_m = foram_growth_m[:,indx_less_dfm,...] # shape is time, depth, lat, lon
 
         # Do the same for the equilibrium calcite from WOA
-        delt_dh = delt_dh_init[depth_00m:indx_dfm,...] # idem
-        delt_dh_m = delt_dh_init_m[:,depth_00m:indx_dfm,...] # idem
+        delt_dh = delt_dh_init[indx_less_dfm,...] # idem
+        delt_dh_m = delt_dh_init_m[:,indx_less_dfm,...] # idem
 
-        # [DENSITY] -- addition of density from WOA
+        # [DENSITY] -- addition of density from WOA
         if not ( woa_rhom is None ):
-           rho_m_specie = rho_m[:,depth_00m:indx_dfm,...] # idem
+           rho_m_specie = rho_m[:,indx_less_dfm,...] # idem
         #endif
 
         # Get the location where there is SOME growth, based on a certain epsilon
         epsilon_growth = 0.1*fpl.l09_maxgrowth_dic[foram_specie][0] # or 0.032
 
-        #Â Mask out the regions where the foram_growth is less than the epsilon
+        # Mask out the regions where the foram_growth is less than the epsilon
         masked_f_growth = ma.masked_less_equal(foram_growth,epsilon_growth)
 
         #~ nb_points_growth = (masked_f_growth * 0.0 + 1.0).filled(0.0)
@@ -227,14 +231,14 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
         masked_f_growth_m = ma.masked_less_equal(foram_growth_m,epsilon_growth)
         f_growth_m = ma.sum(ma.sum(masked_f_growth_m,axis=1),axis=0)
         location_max_foramprod = ma.argmax(masked_f_growth_m,axis=1)
-        location_max_foramprod = ma.masked_array(location_max_foramprod,mask=masked_f_growth_m[:,depth_00m:depth_50m,...].mask.all(axis=1))
+        location_max_foramprod = ma.masked_array(location_max_foramprod,mask=masked_f_growth_m[:,:,...].mask.all(axis=1))
         # location_max_foramprod = ma.masked_array(location_max_foramprod,mask=masked_f_growth_m[:,0,...].mask)
 
         # Computing the weighted sum for d18Ocalcite using growth over depth
         delt_fp = ma.sum(delt_dh*masked_f_growth,axis=0)
         delt_fp_m = ma.sum(ma.sum(delt_dh_m*masked_f_growth_m,axis=1),axis=0)
 
-        # [DENSITY] -- addition of density from WOA
+        # [DENSITY] -- addition of density from WOA
         if not ( woa_rhom is None ):
            rho_fp_m  = ma.sum(ma.sum(rho_m_specie*masked_f_growth_m,axis=1),axis=0)
         #endif
@@ -243,7 +247,7 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
         delt_fp = delt_fp / ma.masked_less_equal(f_growth,0.0)
         delt_fp_m = delt_fp_m / ma.masked_less_equal(f_growth_m,0.0)
         if not ( woa_rhom is None ):
-           # [DENSITY] -- addition of density from WOA
+           # [DENSITY] -- addition of density from WOA
            rho_fp_m = rho_fp_m / ma.masked_less_equal(f_growth_m,0.0)
         #endif
 
@@ -251,7 +255,7 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
         Z_om_fm = delt_fp
         Z_om_fm_m = ma.masked_array(delt_fp_m,mask=ma.max(location_max_foramprod[:,...],axis=0).mask)
 
-        # [DENSITY] -- addition of density from WOA
+        # [DENSITY] -- addition of density from WOA
         if not ( woa_rhom is None ):
            Z_om_rho_m = ma.masked_array(rho_fp_m,mask=ma.max(location_max_foramprod[:,...],axis=0).mask)
         #endif
@@ -263,7 +267,7 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
         index_for = list(fpl.l09_cnsts_dic.keys()).index(foram_specie)
         delt_forams[index_for,...] = Z_om_fm_m
 
-        # [DENSITY] -- addition of density from WOA
+        # [DENSITY] -- addition of density from WOA
         if not ( woa_rhom is None ):
            rhom_forams[index_for,...] = Z_om_rho_m
         #endif
@@ -276,7 +280,7 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
     # For comparison with previous figures: old method on first 00 meters
     Z_om_ol = d18Oca_ol
 
-    # [DENSITY] -- addition of density from WOA
+    # [DENSITY] -- addition of density from WOA
     if not ( woa_rhom is None ):
        return delt_forams, Z_om_ol, rhom_forams, rhom_ol
     else:
@@ -337,7 +341,7 @@ def write_fame(nc_in, equi_calc,resultats_fame, nc_out="out-test.nc", latvar="la
 
     var_dimout = ()
 
-    for key in ('lat','lon'):
+    for key in (latvar,lonvar):
         var_dimout += (dst.dimensions[key].name,)
 
     fill_value = netCDF4.default_fillvals["f4"]
