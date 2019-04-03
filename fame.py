@@ -23,8 +23,9 @@ Last modified, Thu Mar 28 17:51:17 CET 2019
 # Published version v1.0 --- cf. doi:10.5194/gmd-11-3587-2018
 # Changes from version 1.00: included density
 # Changes from version 1.10: cleaned up to account for absent density function
+# Changes from version 1.11: created write_fame2 as areplacement for write_fame
 
-__version__ = "1.11"
+__version__ = "1.12"
 
 def delta_c(Tc, delta_w):
     # Inputs: Tc, temperature in C, delta_w d18O water in per mil
@@ -289,6 +290,38 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
 
 #end def famed
 
+def write_fame2(equi_calc,resultats_fame, nc_out="out-test.nc"):
+
+    import numpy as np
+    import netCDF4
+    import forams_prod_l09 as fpl
+
+    # Write out the variables thus created
+
+    dst = netCDF4.Dataset(nc_out,'r+',format='NETCDF4_CLASSIC')
+    #~ dst.set_fill_on()
+
+    import time
+    dst.history = 'Created ' + time.ctime(time.time()) \
+                      + ' by FAME (v'+__version__+') (dmr,jyp,cw)'
+
+    dst.sync()
+    dst.close()
+
+    fill_value = netCDF4.default_fillvals["f4"]
+
+    import nc_utils as ncu
+    ncu.write_variable(equi_calc,"d18Oc_std",nc_out)
+
+
+    for foram_species in fpl.l09_cnsts_dic :
+
+        indx_f = list(fpl.l09_cnsts_dic.keys()).index(foram_species)
+        ncu.write_variable(resultats_fame[indx_f,...],"d18Oc_"+foram_species,nc_out)
+
+    return
+
+#end def write_fame2
 
 def write_fame(nc_in, equi_calc,resultats_fame, nc_out="out-test.nc", latvar="lat",lonvar="lon",depthvar="depth"):
 
