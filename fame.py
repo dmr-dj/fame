@@ -23,11 +23,13 @@ Last modified, Thu Mar 28 17:51:17 CET 2019
 # Published version v1.0 --- cf. doi:10.5194/gmd-11-3587-2018
 # Changes from version 1.00: included density
 # Changes from version 1.10: cleaned up to account for absent density function
-# Changes from version 1.11: created write_fame2 as areplacement for write_fame
+# Changes from version 1.11: created write_fame2 as a replacement for write_fame
+# Changes from version 1.12: added the computation of the Marchitto equation for Cibicides
+# Changes from version 1.13: cleaned up the cf_compliant part of the code, not needed anymore
 
-__version__ = "1.12"
+__version__ = "1.14"
 
-def delta_c(Tc, delta_w):
+def delta_c_eq(Tc, delta_w):
     # Inputs: Tc, temperature in C, delta_w d18O water in per mil
     # The equation to be computed is the solution
     # to the Kim & O'Neil 1997 equation
@@ -47,76 +49,21 @@ def delta_c(Tc, delta_w):
     return ukn_2+delta_w-0.27
 #enddef delta_c
 
+def delta_c_mar(Tc, delta_w):
+    # Inputs: Tc, temperature in C, delta_w d18O water in per mil
+    # Calcite equilibrium as computed with the Marchitto equation
+    # equation for Cibicides d18O (Marchitto et al., 2014)*
+    # d_c = (d_w - 0.27) + 3.58 - 0.245*T + 0.0011 T^2
+    # *ref: Marchitto et al. Improved oxygen isotope temperature calibrations for cosmopolitan benthic foraminifera. Geochimica et Cosmochimica Acta 130, 1-11 (2014).
+
+    return (delta_w - 0.27) + 3.58 - 0.245 * Tc + 0.0011 * Tc**2
+#enddef delta_c_mar
+
 # from http://stackoverflow.com/questions/2566412/find-nearest-value-in-numpy-array
 def find_closest(A,target) :
     import numpy as np
     return (np.abs(A-target)).argmin()
 #enddef find_closest
-
-def make_cf_compliant(nc_var_nm):
-
-    import sys
-
-    secondsINyear = 31104000.0
-    fac = secondsINyear * 10.0
-
-    standard_names = {
-                  "t2m":"air_temperature",
-                  "pp":"precipitation_flux",
-                  "swrs":"surface_downwelling_shortwave_flux_in_air",
-                  "lon":"longitude",
-                  "lat":"latitude",
-                  "longitude":"longitude",
-                  "latitude":"latitude",
-                  "wetdays":"number_of_days_with_lwe_thickness_of_precipitation_amount_above_threshold",
-                  "ts":"surface_temperature"
-    }
-    standard_units = {
-                  "t2m":"K",
-                  "pp":"kg m-2 s-1",
-                  "swrs":"W m-2",
-                  "lon":"degrees_east",
-                  "lat":"degrees_north",
-                  "longitude":"degrees_east",
-                  "latitude":"degrees_north",
-                  "wetdays":"days",
-                  "ts":"K"
-    }
-    standard_facta = {
-                  "t2m":"273.15",
-                  "pp":"0.0",
-                  "swrs":"0.0",
-                  "lon":"0.0",
-                  "lat":"0.0",
-                  "longitude":"0.0",
-                  "latitude":"0.0",
-                  "wetdays":"0.0",
-                  "ts":"273.15"
-    }
-    standard_factm = {"t2m":"1.0",
-                      "pp":""+str(fac),
-                      "swrs":"1.0",
-                      "lon":"1.0",
-                      "lat":"1.0",
-                      "longitude":"1.0",
-                      "latitude":"1.0",
-                      "wetdays":"1.0",
-                      "ts":"1.0"
-    }
-
-    try:
-       return ( standard_names[nc_var_nm], standard_units[nc_var_nm],
-                standard_facta[nc_var_nm], standard_factm[nc_var_nm] )
-
-    except KeyError:
-#      if nc_var_nm in ["bounds_latitude","bounds_longitude",]:
-      # raise ValueError('Unkown variable ... '+str(nc_var_nm))
-      return ( nc_var_nm, "", "0.0", "1.0" )
-
-
-       # sys.exit()
-
-#end def make_cf_compliant
 
 def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
 
