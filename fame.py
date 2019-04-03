@@ -26,8 +26,9 @@ Last modified, Thu Mar 28 17:51:17 CET 2019
 # Changes from version 1.11: created write_fame2 as a replacement for write_fame
 # Changes from version 1.12: added the computation of the Marchitto equation for Cibicides
 # Changes from version 1.13: cleaned up the cf_compliant part of the code, not needed anymore
+# Changes from version 1.14: added Cibicides computation in the main code of Fame and in the output
 
-__version__ = "1.14"
+__version__ = "1.15"
 
 def delta_c_eq(Tc, delta_w):
     # Inputs: Tc, temperature in C, delta_w d18O water in per mil
@@ -47,7 +48,7 @@ def delta_c_eq(Tc, delta_w):
     ukn_2 = (b*-1.0 - delta**(0.5))/(2*a)
 
     return ukn_2+delta_w-0.27
-#enddef delta_c
+#enddef delta_c_eq
 
 def delta_c_mar(Tc, delta_w):
     # Inputs: Tc, temperature in C, delta_w d18O water in per mil
@@ -85,8 +86,17 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
     temp_kl_m = temp_cl_m + 273.15
 
     # Computation of equilibrium calcite from WOA fields ...
-    delt_dh_init = delta_c(temp_cl[...],woa_oxyg_dh)
-    delt_dh_init_m = delta_c(temp_cl_m,woa_oxyg_dh_m)
+    delt_dh_init = delta_c_eq(temp_cl[...],woa_oxyg_dh)
+    delt_dh_init_m = delta_c_eq(temp_cl_m,woa_oxyg_dh_m)
+
+
+    # Added the computation of the equation of Marchitto everywhere, no weighting.
+
+    #  Probably useless, only written for compatibility
+    #~ d18Oca_mar   =  ma.mean(delta_c_mar(temp_cl  ,woa_oxyg_dh),axis=0)
+
+    #  Actual calculation here
+    d18Oca_mar_m =  ma.mean(delta_c_mar(temp_cl_m,woa_oxyg_dh_m),axis=0)
 
     if not ( woa_rhom is None ):
        # [DENSITY] -- addition of density from WOA
@@ -106,11 +116,11 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
 
     d18Osw_lj = ma.mean(woa_oxyg_dh[indx_less_50m,...],axis=0)
     tempcl_lj = ma.mean(temp_cl[indx_less_50m,...],axis=0)
-    d18Oca_lj = delta_c(tempcl_lj,d18Osw_lj)
+    d18Oca_lj = delta_c_eq(tempcl_lj,d18Osw_lj)
 
     d18Osw_ol = woa_oxyg_dh[depth_00m,...]
     tempcl_ol = temp_cl[depth_00m,...]
-    d18Oca_ol = delta_c(tempcl_ol,d18Osw_ol)
+    d18Oca_ol = delta_c_eq(tempcl_ol,d18Osw_ol)
 
     if not ( woa_rhom is None ):
         # [DENSITY] -- addition of density from WOA
@@ -232,12 +242,12 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
     if not ( woa_rhom is None ):
        return delt_forams, Z_om_ol, rhom_forams, rhom_ol
     else:
-       return delt_forams, Z_om_ol
+       return delt_forams, Z_om_ol, d18Oca_mar_m
     #endif
 
 #end def famed
 
-def write_fame2(equi_calc,resultats_fame, nc_out="out-test.nc"):
+def write_fame2(calc_benthos,equi_calc,resultats_fame, nc_out="out-test.nc"):
 
     import numpy as np
     import netCDF4
@@ -258,8 +268,8 @@ def write_fame2(equi_calc,resultats_fame, nc_out="out-test.nc"):
     fill_value = netCDF4.default_fillvals["f4"]
 
     import nc_utils as ncu
-    ncu.write_variable(equi_calc,"d18Oc_std",nc_out)
-
+    ncu.write_variable(equi_calc,"d18Oc_equ",nc_out)
+    ncu.write_variable(calc_benthos,"d18Oc_cib",nc_out)
 
     for foram_species in fpl.l09_cnsts_dic :
 
