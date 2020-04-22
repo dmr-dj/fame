@@ -240,14 +240,16 @@ def famed(woa_oxyg_dh,woa_oxyg_dh_m,temp_cl,temp_cl_m,depth,woa_rhom=None):
 
     # [DENSITY] -- addition of density from WOA
     if not ( woa_rhom is None ):
-       return delt_forams, Z_om_ol, rhom_forams, rhom_ol
+       print("Fame is used with density ...")
+       return delt_forams, Z_om_ol, d18Oca_mar_m, rhom_forams, rhom_ol
     else:
+       print("Fame is used without density ...")
        return delt_forams, Z_om_ol, d18Oca_mar_m
     #endif
 
 #end def famed
 
-def write_fame2(calc_benthos,equi_calc,resultats_fame, nc_out="out-test.nc"):
+def write_fame2(calc_benthos,equi_calc,resultats_fame, density=None,nc_out="out-test.nc"):
 
     import numpy as np
     import netCDF4
